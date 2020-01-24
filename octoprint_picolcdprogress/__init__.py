@@ -11,6 +11,7 @@ from octoprint.events import Events
 from pypicolcd import lcdclient
 import copy
 
+
 class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
                             octoprint.plugin.SettingsPlugin):
     _last_updated = 0.0
@@ -20,9 +21,21 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
     _eta_strftime = ""
     _messages = []
     _picolcd_params = {"x": 0, "y": 0}
+    _lcd_server = ""
     _prev_msg = None
 
+    def is_not_blank(self, s):
+        return (s is not None) and (len(s.strip()) > 0)
+
+    def _update_picolcd_params(self):
+        if self.is_not_blank(self._lcd_server):
+            self._picolcd_params["host"] = self._lcd_server
+        else:
+            if "host" in self._picolcd_params:
+                del self._picolcd_params["host"]
+
     def show_picolcd_msg(self, msg, flash=False):
+        self._update_picolcd_params()
         if msg != self._prev_msg:
             self._prev_msg = msg
             action = copy.deepcopy(self._picolcd_params)
@@ -39,6 +52,7 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             self._etl_format = self._settings.get(["etl_format"])
             self._eta_strftime = self._settings.get(["eta_strftime"])
             self._messages = self._settings.get(["messages"])
+            self._lcd_server = self._settings.get(["lcd_server"])
             self._repeat_timer = octoprint.util.RepeatedTimer(self._settings.get_int(["time_to_change"]), self.do_work)
             self._repeat_timer.start()
         elif event in (Events.PRINT_DONE, Events.PRINT_FAILED, Events.PRINT_CANCELLED):
@@ -144,7 +158,8 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             ],
             eta_strftime = "%H %M %S Day %d",
             etl_format = "{hours:02d}h{minutes:02d}m{seconds:02d}s",
-            time_to_change = 10
+            time_to_change = 10,
+            lcd_server = ""
         )
 
     ##~~ Softwareupdate hook

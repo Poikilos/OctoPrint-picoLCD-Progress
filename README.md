@@ -31,6 +31,12 @@ plugins:
     time_to_change: 10
     eta_strftime: "%H:%M:%S Day %d"
     etl_format: "{hours:02d}:{minutes:02d}:{seconds:02d}"
+    # LCD server (blank for localhost; If the pypicolcd server is
+    # configured for remote access, you must set host to your LAN IP or
+    # hostname, even if it is your own LAN IP or hostname, since in that
+    # case the service would not be bound to 127.0.0.1 but rather the
+    # LAN IP).
+    lcd_server: ""
     # Messages to display. Placeholders:
     # - completion : The % completed
     # - printTimeLeft : A string in the format "HH:MM:SS" with how long the print still has left
