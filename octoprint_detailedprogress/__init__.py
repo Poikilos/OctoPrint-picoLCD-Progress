@@ -8,6 +8,9 @@ import octoprint.util
 import traceback
 from octoprint.events import Events
 
+from pypicolcd import lcdclient
+import copy
+
 class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
                             octoprint.plugin.SettingsPlugin):
     _last_updated = 0.0
@@ -16,6 +19,20 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
     _etl_format = ""
     _eta_strftime = ""
     _messages = []
+    _picolcd_params = {"x": 0, "y": 0}
+    _prev_msg = None
+
+    def show_picolcd_msg(self, msg, flash=False):
+        if msg != self._prev_msg:
+            self._prev_msg = msg
+            action = copy.deepcopy(self._picolcd_params)
+            action["lines"] = ["", msg]
+            if flash:
+                action["flash"] = True
+            results = lcdclient.send_action(action)
+            # TODO: do something with results
+            # if not results["status"] == "OK":
+
     def on_event(self, event, payload):
         if event == Events.PRINT_STARTED:
             self._logger.info("Printing started. PicoLCD progress started.")
@@ -29,12 +46,14 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
                 self._repeat_timer.cancel()
                 self._repeat_timer = None
             self._logger.info("Printing stopped. PicoLCD progress stopped.")
-            self._printer.commands("M117 Print Done")
+            # self._printer.commands("M117 Print Done")
+            self.show_picolcd_msg("Print Done", flash=True)
         elif event == Events.CONNECTED:
             ip = self._get_host_ip()
             if not ip:
                 return
-            self._printer.commands("M117 IP {}".format(ip))
+            # self._printer.commands("M117 IP {}".format(ip))
+            self.show_lcd_msg("IP {}".format(ip), flash=True)
 
     def do_work(self):
         if not self._printer.is_printing():
@@ -45,7 +64,8 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             currentData = self._sanitize_current_data(currentData)
 
             message = self._get_next_message(currentData)
-            self._printer.commands("M117 {}".format(message))
+            # self._printer.commands("M117 {}".format(message))
+            self.show_picolcd_msg("{}".format(message), flash=False)
         except Exception as e:
             self._logger.info("Caught an exception {0}\nTraceback:{1}".format(e,traceback.format_exc()))
 
