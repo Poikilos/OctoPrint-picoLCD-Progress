@@ -77,31 +77,54 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
 
     def on_event(self, event, payload):
         now = datetime.now()
-        ts = now.strftime("%M:%S %b %d")
+        # See
+        # <https://docs.python.org/2/library/datetime.html#strftime-and-
+        # strptime-behavior>
+        # %m zero-padded month
+        # formerly %M:%S %b %d
+        # %b (locale's abbreviated month name)
+        ts = now.strftime("%H%M %b%d")  # There isn't anymore space@128
         if event == Events.PRINT_STARTED:
             self._logger.info("Printing started. PicoLCD progress started.")
             self._etl_format = self._settings.get(["etl_format"])
             self._eta_strftime = self._settings.get(["eta_strftime"])
             self._messages = self._settings.get(["messages"])
             self._lcd_server = self._settings.get(["lcd_server"])
-            self._repeat_timer = octoprint.util.RepeatedTimer(self._settings.get_int(["time_to_change"]), self.do_work)
+            self._repeat_timer = octoprint.util.RepeatedTimer(
+                self._settings.get_int(["time_to_change"]),
+                self.do_work
+            )
             self._repeat_timer.start()
             self.first = True
             self.show_start_stop_msg("starting from: {}".format(ts),
                                      flash=True, clear=True)
             self.first = True
 
-        elif event in (Events.PRINT_DONE, Events.PRINT_FAILED, Events.PRINT_CANCELLED):
+        elif event in (Events.PRINT_DONE, Events.PRINT_FAILED,
+                       Events.PRINT_CANCELLED):
             if self._repeat_timer != None:
                 self._repeat_timer.cancel()
                 self._repeat_timer = None
-            self._logger.info("Printing stopped. PicoLCD progress stopped.")
             # self._printer.commands("M117 Print Done")
             msg = "done job"
+            min_len = 8
+            percent_msg = "stopped"
             if event == Events.PRINT_CANCELLED:
                 msg = "canceled"
             elif event == Events.PRINT_FAILED:
-                msg = "failed--"
+                msg = "failed"
+            else:
+                percent_msg = "*100%*"
+            self._logger.info("The print stopped: {}.".format(msg))
+            msg = msg.ljust(min_len, "-")  # ljust pads on right
+            # See <https://stackoverflow.com/a/5676673>
+            # Or: msg = "{:-<8}".format(msg)
+            # but '%' is more Python 2 friendly: "%-8s" % msg
+            # - but only does spaces (`-` makes it left justified)
+            # - and ljust works with Python 2.
+            # - then there's `('hi' + '-'*min_len)[:min_len]` lol
+            self.show_msg(percent_msg, x=0, y=8, clear=False,
+                          refresh=False)
             self.show_start_stop_msg(msg, flash=True,
                                      clear=False)
             # The message above is designed to overwrite the word
@@ -214,6 +237,14 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
         if job_name is None:
             self._logger.info("job_name is unknown.")
             job_name = "?"
+        else:
+            # There is a possibility that 'display' could be anything,
+            # so don't truncate filenames if they contain a '.' but not
+            # an extension. Instead, only remove known extensions.
+            known_exts = [".gcode", ".g", ".x3d"]
+            for ext in known_exts:
+                if job_name.lower().endswith(ext):
+                    job_name = job_name[:len(job_name)-len(ext)]
         results.append(str(job_name))
         for i in range(len(self._messages)):
             message = self._messages[i]
