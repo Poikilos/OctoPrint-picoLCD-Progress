@@ -3,14 +3,26 @@ from __future__ import absolute_import
 import time
 import socket
 
+# This is only for local testing on the dev computer:
+import os
+import sys
+test_path = "/home/owner/git/octoprint_test_dummy"
+if os.path.isdir(test_path):
+    sys.path.insert(0, test_path)
+
+
 import octoprint.plugin
 import octoprint.util
 import traceback
 from octoprint.events import Events
-
-from pypicolcd import lcdclient
 import copy
 
+# This is only for local testing version on the dev computer:
+test_path = "/home/owner/lcd/lib/python3.7/site-packages"
+if os.path.isdir(test_path):
+    sys.path.insert(0, test_path)
+
+from pypicolcd import lcdclient
 
 class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
                             octoprint.plugin.SettingsPlugin):
@@ -23,6 +35,8 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
     _picolcd_params = {"x": 0, "y": 0}
     _lcd_server = ""
     _prev_msg = None
+    lcd_center = 128
+    lcd_my_line_count = 3
 
     def is_not_blank(self, s):
         return (s is not None) and (len(s.strip()) > 0)
@@ -34,7 +48,7 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             if "host" in self._picolcd_params:
                 del self._picolcd_params["host"]
 
-    def show_picolcd_msg(self, msg, flash=False, clear=True, x=0, y=0):
+    def show_picolcd_msg(self, msg, flash=False, clear=False, x=0, y=0):
         self._update_picolcd_params()
         if msg != self._prev_msg:
             self._prev_msg = msg
@@ -67,15 +81,17 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
                 self._repeat_timer = None
             self._logger.info("Printing stopped. PicoLCD progress stopped.")
             # self._printer.commands("M117 Print Done")
-            self.show_picolcd_msg("Print Done", flash=True, clear=True)
+            self.show_picolcd_msg("Print Done", flash=True, clear=False,
+                                  x=self.lcd_center,
+                                  y=8*(self.lcd_my_line_count-1))
             self.first = True
         elif event == Events.CONNECTED:
             ip = self._get_host_ip()
             if not ip:
                 return
             # self._printer.commands("M117 IP {}".format(ip))
-            self.show_lcd_msg("IP {}".format(ip), flash=True,
-                              clear=True)
+            self.show_picolcd_msg("IP {}".format(ip), flash=True,
+                                  clear=True)
             self.first = True
 
     def do_work(self):
@@ -91,18 +107,28 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             # self.show_picolcd_msg("{}".format(message), flash=False,
             #                       clear=True)
             messages = _get_all_messages(currentData)
-            last_line = 3
             x = 0
             y = 0
-            center = 128
+            profile = os.environ.get("HOME")
+            if profile is None:
+                profile = os.environ.get("USERPROFILE")
+            if profile is not None:
+                job = currentData.get("job")
+                if job is not None:
+                    job_s = json.dumps(job, indent=2, sort_keys=True)
+                    last_job_path = os.path.join(profile,
+                                                 "last_job.json")
+                    with open(last_job_path, 'w') as outs:
+                        outs.write(job_s)
+
             for i in range(len(messages)):
+                if i == self.lcd_my_line_count:
+                    y = 0
+                    x = self.lcd_center
                 show_picolcd_msg(messages[i], clear=self.first, x=x,
                                  y=y)
                 self.first = False
                 y += 8
-                if i == last_line:
-                    y = 0
-                    x = center
 
         except Exception as e:
             self._logger.info("Caught an exception {0}\nTraceback:{1}".format(e,traceback.format_exc()))
@@ -146,6 +172,9 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
 
     def _get_all_messages(self, currentData):
         results = []
+
+        if job is not None:
+            results.append(str(job))
         for i in range(len(self._messages)):
             message = self._messages[i]
             this_msg = message.format(
@@ -195,7 +224,7 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
                 "ETA {ETA}",
                 "{accuracy} accuracy"
             ],
-            eta_strftime = "%H %M %S Day %d",
+            eta_strftime = "%H %M %S %b %d",
             etl_format = "{hours:02d}h{minutes:02d}m{seconds:02d}s",
             time_to_change = 10,
             lcd_server = ""
