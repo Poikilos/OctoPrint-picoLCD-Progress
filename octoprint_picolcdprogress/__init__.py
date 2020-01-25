@@ -44,6 +44,10 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
                 action["flash"] = True
             if clear:
                 action["clear"] = True
+            if x is not None:
+                action["x"] = x
+            if y is not None:
+                action["y"] = y
             results = lcdclient.send_action(action)
             # TODO: do something with results
             # if not results["status"] == "OK":
