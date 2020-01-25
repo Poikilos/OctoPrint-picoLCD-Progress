@@ -4,6 +4,14 @@
         <hr>
         <!--<p>The current connection status is: <strong data-bind="text: connection_state_str"></strong></p>-->
         <div class="control-group">
+                <label class="control-label">{{ _('Job ETA time format') }}</label>
+                <div class="controls">
+                        <input type="text" class="input-block-level" id="settings_plugin_picolcdprogress_eta_strftime" data-bind="value: settings.plugins.picolcdprogress.eta_strftime" />
+                </div>
+                <label class="control-label">{{ _('Job length time format') }}</label>
+                <div class="controls">
+                        <input type="text" class="input-block-level" id="settings_plugin_picolcdprogress_etl_format" data-bind="value: settings.plugins.picolcdprogress.etl_format" />
+                </div>
                 <label class="control-label">{{ _('picoLCD Host (blank for localhost)') }}</label>
                 <div class="controls">
                         <input type="text" class="input-block-level" id="settings_plugin_picolcdprogress_lcd_server" data-bind="value: settings.plugins.picolcdprogress.lcd_server" />

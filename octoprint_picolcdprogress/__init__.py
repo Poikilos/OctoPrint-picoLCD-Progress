@@ -8,6 +8,7 @@ import octoprint.util
 import traceback
 from octoprint.events import Events
 import copy
+from datetime import datetime
 
 from pypicolcd import lcdclient
 
@@ -46,13 +47,14 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             if "host" in self._picolcd_params:
                 del self._picolcd_params["host"]
 
-    def show_picolcd_msg(self, msg, flash=False, clear=False, x=0, y=0):
+    def show_picolcd_msg(self, msg, flash=False, clear=False, x=0, y=0,
+                         refresh=True):
         """Send a message to the pypicolcd framebuffer."""
         self._update_picolcd_params()
         if msg != self._prev_msg:
             self._prev_msg = msg
             action = copy.deepcopy(self._picolcd_params)
-            action["lines"] = ["", msgSin]
+            action["lines"] = [msg]
             if flash:
                 action["flash"] = True
             if clear:
@@ -61,17 +63,21 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
                 action["x"] = x
             if y is not None:
                 action["y"] = y
+            if refresh:
+                action["refresh"] = True
             # self._logger.info("Sending {}...".format(action))
             results = lcdclient.send_action(action)
             # TODO: do something with results
             # if not results["status"] == "OK":
 
-    def show_start_stop_msg(msg, clear=False, flash=True):
+    def show_start_stop_msg(self, msg, clear=False, flash=True):
         self.show_picolcd_msg(msg, flash=flash, clear=clear,
                               x=self.lcd_center,
                               y=8*(self.lcd_my_line_count-1))
 
     def on_event(self, event, payload):
+        now = datetime.now()
+        ts = now.strftime("%M:%S %b %d")
         if event == Events.PRINT_STARTED:
             self._logger.info("Printing started. PicoLCD progress started.")
             self._etl_format = self._settings.get(["etl_format"])
@@ -80,21 +86,34 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             self._lcd_server = self._settings.get(["lcd_server"])
             self._repeat_timer = octoprint.util.RepeatedTimer(self._settings.get_int(["time_to_change"]), self.do_work)
             self._repeat_timer.start()
+            self.first = True
+            self.show_start_stop_msg("starting from: {}".format(ts),
+                                     flash=True, clear=True)
+            self.first = True
+
         elif event in (Events.PRINT_DONE, Events.PRINT_FAILED, Events.PRINT_CANCELLED):
             if self._repeat_timer != None:
                 self._repeat_timer.cancel()
                 self._repeat_timer = None
             self._logger.info("Printing stopped. PicoLCD progress stopped.")
             # self._printer.commands("M117 Print Done")
-            self.show_start_stop_msg("Print Done", flash=True,
+            msg = "done job"
+            if event == Events.PRINT_CANCELLED:
+                msg = "canceled"
+            elif event == Events.PRINT_FAILED:
+                msg = "failed--"
+            self.show_start_stop_msg(msg, flash=True,
                                      clear=False)
+            # The message above is designed to overwrite the word
+            # "starting" in "starting from:" written in the previous
+            # call to show_start_stop_msg.
             self.first = True
         elif event == Events.CONNECTED:
             ip = self._get_host_ip()
             if not ip:
-                return
+                ip = "?"
             # self._printer.commands("M117 IP {}".format(ip))
-            self.show_start_stop_msg("printing to {}".format(ip),
+            self.show_start_stop_msg("connected {} {}".format(ip, ts),
                                      flash=True, clear=True)
             self.first = True
 
@@ -113,12 +132,17 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             messages = self._get_all_messages(currentData)
             x = 0
             y = 0
+            refresh = False
             for i in range(len(messages)):
+                if i == (len(messages) - 1):
+                    refresh = True
                 if i == self.lcd_my_line_count:
-                    y = 0
+                    y = 8  # don't overwrite right side of job name
                     x = self.lcd_center
-                self.show_picolcd_msg(messages[i], clear=self.first, x=x,
-                                      y=y)
+                # clear = self.first
+                clear = False  # don't overwrite the start time.
+                self.show_picolcd_msg(messages[i], clear=clear, x=x,
+                                      y=y, refresh=refresh)
                 self.first = False
                 y += 8
 
@@ -174,13 +198,21 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
         f = None
         if job is not None:
             f = job.get("file")
+        else:
+            self._logger.info("job is None.")
         if f is not None:
             job_name = f.get("display")  # friendly name or filename
             if job_name is None:
+                self._logger.info("job['file']['display'] is None.")
                 job_name = f.get("name")  # filename
                 if job_name is not None:
                     job_name = "'{}'".format(job_name)
+                else:
+                    self._logger.info("job['file']['name'] is None.")
+        else:
+            self._logger.info("job['file'] is None.")
         if job_name is None:
+            self._logger.info("job_name is unknown.")
             job_name = "?"
         results.append(str(job_name))
         for i in range(len(self._messages)):
@@ -240,12 +272,12 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
     def get_settings_defaults(self):
         return dict(
             messages = [
-                "{completion:.2f}p  complete",
+                "{completion:.2f}%",
                 "ETL {printTimeLeft}",
-                "ETA {ETA}",
-                "{accuracy} accuracy"
+                "ETA {ETA}"  #,
+                # "{accuracy} accuracy"
             ],
-            eta_strftime = "%H %M %S %b %d",
+            eta_strftime = "%H:%M:%S %b %d",
             etl_format = "{hours:02d}h{minutes:02d}m{seconds:02d}s",
             time_to_change = 10,
             lcd_server = None

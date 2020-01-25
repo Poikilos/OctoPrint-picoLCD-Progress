@@ -4,6 +4,17 @@ This fork of OctoPrint-DetailedProgress writes the progress to a picoLCD device 
 
 M117 is no longer used. Search for M117 (which still appears in comments) to see what has changed.
 
+## Additional Changes
+- There is now a settings GUI in the OctoPrint web interface.
+  - The variables use the default binding method, so OctoPrint automatically saves them to `~/.octoprint/config.yaml` like other OctoPrint settings when you press "Save" in the settings panel.
+- The screen shows the display name for the job!
+  - The first line is reserved for the name so that the picoLCD screen can fit very long filenames!
+  - The plugin uses `job['file']['display']` (falls back to `job['file']['name']` otherwise).
+- The percent complete is marked with "%" instead of "p complete"
+- The done message says whether the print failed, done, or canceled instead of always "done."
+- The start event shows a start time.
+- The default ETA format has colons in the time instead of spaces.
+
 ## Setup
 You must have a picoLCD device. Only the picoLCD 256x64 Sideshow is tested.
 
