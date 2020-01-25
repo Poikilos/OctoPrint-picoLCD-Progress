@@ -47,3 +47,35 @@ plugins:
       - "ETL: {printTimeLeft}"
       - "ETA: {ETA}"
 ```
+
+## Developer Notes
+### Job data
+
+```Python
+currentData = self._printer.get_current_data()
+currentData = self._sanitize_current_data(currentData)
+currentData.get("job")
+```
+
+```json
+{
+  "averagePrintTime": null,
+  "estimatedPrintTime": 2828.025893510537,
+  "filament": {
+    "tool0": {
+      "length": 813.9770699999954,
+      "volume": 0.0
+    }
+  },
+  "file": {
+    "date": 1579921462,
+    "display": "harbor_top_-_brick (3DPP JA3S).gcode",
+    "name": "harbor_top_-_brick_(3DPP_JA3S).gcode",
+    "origin": "local",
+    "path": "tabletop/catan-style-boardgame/harbor_top_-_brick_(3DPP_JA3S).gcode",
+    "size": 1593876
+  },
+  "lastPrintTime": null,
+  "user": "pi"
+}
+```
