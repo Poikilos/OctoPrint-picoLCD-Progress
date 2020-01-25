@@ -34,7 +34,7 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             if "host" in self._picolcd_params:
                 del self._picolcd_params["host"]
 
-    def show_picolcd_msg(self, msg, flash=False):
+    def show_picolcd_msg(self, msg, flash=False, clear=True, x=0, y=0):
         self._update_picolcd_params()
         if msg != self._prev_msg:
             self._prev_msg = msg
@@ -42,6 +42,8 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             action["lines"] = ["", msg]
             if flash:
                 action["flash"] = True
+            if clear:
+                action["clear"] = True
             results = lcdclient.send_action(action)
             # TODO: do something with results
             # if not results["status"] == "OK":
@@ -61,25 +63,43 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
                 self._repeat_timer = None
             self._logger.info("Printing stopped. PicoLCD progress stopped.")
             # self._printer.commands("M117 Print Done")
-            self.show_picolcd_msg("Print Done", flash=True)
+            self.show_picolcd_msg("Print Done", flash=True, clear=True)
+            self.first = True
         elif event == Events.CONNECTED:
             ip = self._get_host_ip()
             if not ip:
                 return
             # self._printer.commands("M117 IP {}".format(ip))
-            self.show_lcd_msg("IP {}".format(ip), flash=True)
+            self.show_lcd_msg("IP {}".format(ip), flash=True,
+                              clear=True)
+            self.first = True
 
     def do_work(self):
         if not self._printer.is_printing():
             # we have nothing to do here
+            self.first = True
             return
         try:
             currentData = self._printer.get_current_data()
             currentData = self._sanitize_current_data(currentData)
-
-            message = self._get_next_message(currentData)
+            # message = self._get_next_message(currentData)
             # self._printer.commands("M117 {}".format(message))
-            self.show_picolcd_msg("{}".format(message), flash=False)
+            # self.show_picolcd_msg("{}".format(message), flash=False,
+            #                       clear=True)
+            messages = _get_all_messages(currentData)
+            last_line = 3
+            x = 0
+            y = 0
+            center = 128
+            for i in range(len(messages)):
+                show_picolcd_msg(messages[i], clear=self.first, x=x,
+                                 y=y)
+                self.first = False
+                y += 8
+                if i == last_line:
+                    y = 0
+                    x = center
+
         except Exception as e:
             self._logger.info("Caught an exception {0}\nTraceback:{1}".format(e,traceback.format_exc()))
 
@@ -118,6 +138,21 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             self._logger.debug("Caught an exception trying to parse data: {0}\n Error is: {1}\nTraceback:{2}".format(currentData,e,traceback.format_exc()))
 
         return currentData
+
+
+    def _get_all_messages(self, currentData):
+        results = []
+        for i in range(len(self._messages)):
+            message = self._messages[i]
+            this_msg = message.format(
+                completion = currentData["progress"]["completion"],
+                printTimeLeft = currentData["progress"]["printTimeLeftString"],
+                ETA = currentData["progress"]["ETA"],
+                filepos = currentData["progress"]["filepos"],
+                accuracy = currentData["progress"]["accuracy"],
+            )
+            results.append(this_msg)
+        return results
 
     def _get_next_message(self, currentData):
         message = self._messages[self._last_message]
