@@ -2,11 +2,18 @@
 from __future__ import absolute_import
 import time
 import socket
+import json
+
 
 # This is only for local testing on the dev computer:
 import os
 import sys
-test_path = "/home/owner/git/octoprint_test_dummy"
+profile = os.environ.get("HOME")
+if profile is None:
+    profile = os.environ.get("USERPROFILE")
+if profile is None:
+    profile = "/home/owner"
+test_path = os.path.join(profile, "git/octoprint_test_dummy")
 if os.path.isdir(test_path):
     sys.path.insert(0, test_path)
 
@@ -18,14 +25,16 @@ from octoprint.events import Events
 import copy
 
 # This is only for local testing version on the dev computer:
-test_path = "/home/owner/lcd/lib/python3.7/site-packages"
+test_path = os.path.join(profile, "lcd/lib/python3.7/site-packages")
 if os.path.isdir(test_path):
     sys.path.insert(0, test_path)
 
 from pypicolcd import lcdclient
 
 class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
-                            octoprint.plugin.SettingsPlugin):
+                            octoprint.plugin.TemplatePlugin,
+                            octoprint.plugin.SettingsPlugin,
+                            octoprint.plugin.StartupPlugin):
     _last_updated = 0.0
     _last_message = 0
     _repeat_timer = None
@@ -38,17 +47,26 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
     lcd_center = 128
     lcd_my_line_count = 3
 
-    def is_not_blank(self, s):
-        return (s is not None) and (len(s.strip()) > 0)
+    def on_after_startup(self):
+        # self._logger.info(" (lcd_server: {})".format(
+        #     self._settings.get(["lcd_server"])
+        # ))
+        pass
+
+    def is_blank(self, s):
+        """Check if the string is None, empty, or whitespace-only."""
+        return (s is None) or (len(s.strip()) == 0)
 
     def _update_picolcd_params(self):
-        if self.is_not_blank(self._lcd_server):
+        """Prepare to transfer applicable settings to lcdclient"""
+        if not self.is_blank(self._lcd_server):
             self._picolcd_params["host"] = self._lcd_server
         else:
             if "host" in self._picolcd_params:
                 del self._picolcd_params["host"]
 
     def show_picolcd_msg(self, msg, flash=False, clear=False, x=0, y=0):
+        """Send a message to the pypicolcd framebuffer."""
         self._update_picolcd_params()
         if msg != self._prev_msg:
             self._prev_msg = msg
@@ -62,6 +80,7 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
                 action["x"] = x
             if y is not None:
                 action["y"] = y
+            self._logger.info("Sending {}...".format(action))
             results = lcdclient.send_action(action)
             # TODO: do something with results
             # if not results["status"] == "OK":
@@ -90,7 +109,7 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             if not ip:
                 return
             # self._printer.commands("M117 IP {}".format(ip))
-            self.show_picolcd_msg("IP {}".format(ip), flash=True,
+            self.show_picolcd_msg("printing to {}".format(ip), flash=True,
                                   clear=True)
             self.first = True
 
@@ -106,12 +125,9 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             # self._printer.commands("M117 {}".format(message))
             # self.show_picolcd_msg("{}".format(message), flash=False,
             #                       clear=True)
-            messages = _get_all_messages(currentData)
+            messages = self._get_all_messages(currentData)
             x = 0
             y = 0
-            profile = os.environ.get("HOME")
-            if profile is None:
-                profile = os.environ.get("USERPROFILE")
             if profile is not None:
                 job = currentData.get("job")
                 if job is not None:
@@ -216,7 +232,41 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
 
     ##~~ Settings
 
+    def get_template_configs(self):
+        """
+        Tell OctoPrint not to use custom bindings. See
+        <https://docs.octoprint.org/en/master/plugins/
+        gettingstarted.html#frontend-fun-how-to-add-functionality-to-
+        octoprint-s-web-interface>. If you do it this way, you do not
+        need to override get_template_vars.
+        """
+        return [
+            dict(type="settings", custom_bindings=False)
+        ]
+
+
     def get_settings_defaults(self):
+        print("OctoPrint-picoLCD-Progress get_settings_defaults...")
+        configs_path = os.path.join(profile, ".config")
+        if not os.path.isdir(configs_path):
+            configs_path = os.path.join(profile, "AppData\\Local")
+        my_config_path = os.path.join(configs_path,
+                                      "octoprint_picolcdprogress")
+        settings_path = os.path.join(my_config_path, "settings.json")
+        more_settings = {}
+        this_lcd_server = None
+        # if os.path.isfile(settings_path):
+            # with open(settings_path, 'r') as ins:
+                # more_settings = json.load(ins)
+                # this_lcd_server = more_settings.get("lcd_server")
+                # self._logger.info("lcd_server: {} (from '{}')".format(
+                    # this_lcd_server,
+                    # settings_path
+                # ))
+        # else:
+            # print("lcd_server: {}".format(this_lcd_server))
+        if this_lcd_server is None:
+            this_lcd_server = ""
         return dict(
             messages = [
                 "{completion:.2f}p  complete",
@@ -227,8 +277,17 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             eta_strftime = "%H %M %S %b %d",
             etl_format = "{hours:02d}h{minutes:02d}m{seconds:02d}s",
             time_to_change = 10,
-            lcd_server = ""
+            lcd_server = this_lcd_server
         )
+
+    # def get_template_vars(self):
+        # """
+        # Configure TemplatePlugin to add settings
+        # (it can add other things too)
+        # """
+        # return dict(
+            # lcd_server=self._settings.get(["lcd_server"])
+        # )
 
     ##~~ Softwareupdate hook
 
@@ -249,6 +308,7 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             )
         )
 
+# The __plugin_name__ here can differ from setup.py for using spaces.
 __plugin_name__ = "picoLCD Progress Plugin"
 
 def __plugin_load__():
