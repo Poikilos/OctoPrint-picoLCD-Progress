@@ -3,7 +3,9 @@
 #
 #    pip install -e .
 #
-# works as expected. Requirements can be found in setup.py.
+# works as expected. Usually requirements can be found in setup.py.
+# However, in the case of OctoPrint-picoLCD-Progress, a package from GitHub (that is not in PyPI) is necessary:
+# See https://pip.pypa.io/en/latest/reference/pip_install/#requirements-file-format
 ###
-
+https://github.com/poikilos/pypicolcd/archive/master.zip
 .
