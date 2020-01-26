@@ -123,8 +123,8 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             # - but only does spaces (`-` makes it left justified)
             # - and ljust works with Python 2.
             # - then there's `('hi' + '-'*min_len)[:min_len]` lol
-            self.show_msg(percent_msg, x=0, y=8, clear=False,
-                          refresh=False)
+            self.show_picolcd_msg(percent_msg, x=0, y=8, clear=False,
+                                  refresh=False)
             self.show_start_stop_msg(msg, flash=True,
                                      clear=False)
             # The message above is designed to overwrite the word
