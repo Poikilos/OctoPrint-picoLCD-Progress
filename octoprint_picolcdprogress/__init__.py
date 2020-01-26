@@ -83,7 +83,7 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
         # %m zero-padded month
         # formerly %M:%S %b %d
         # %b (locale's abbreviated month name)
-        ts = now.strftime("%H%M %b%d")  # There isn't anymore space@128
+        ts = now.strftime("%H:%M %b%d")  # There isn't anymore space@128
         if event == Events.PRINT_STARTED:
             self._logger.info("Printing started. PicoLCD progress started.")
             self._etl_format = self._settings.get(["etl_format"])
@@ -96,7 +96,7 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             )
             self._repeat_timer.start()
             self.first = True
-            self.show_start_stop_msg("starting from: {}".format(ts),
+            self.show_start_stop_msg("starting from {}".format(ts),
                                      flash=True, clear=True)
             self.first = True
 
@@ -128,7 +128,7 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             self.show_start_stop_msg(msg, flash=True,
                                      clear=False)
             # The message above is designed to overwrite the word
-            # "starting" in "starting from:" written in the previous
+            # "starting" in "starting from" written in the previous
             # call to show_start_stop_msg.
             self.first = True
         elif event == Events.CONNECTED:
