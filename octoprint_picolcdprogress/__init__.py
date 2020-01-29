@@ -185,8 +185,8 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
         if (currentData["progress"]["printTime"] == None):
             currentData["progress"]["printTime"] = currentData["job"]["estimatedPrintTime"]
 
-        currentData["progress"]["printTimeLeftString"] = "No ETL yet"
-        currentData["progress"]["ETA"] = "No ETA yet"
+        currentData["progress"]["printTimeLeftString"] = "..."
+        currentData["progress"]["ETA"] = "..."
         accuracy = currentData["progress"]["printTimeLeftOrigin"]
         if accuracy:
             if accuracy == "estimate":
@@ -209,7 +209,8 @@ class PicoLCDProgressPlugin(octoprint.plugin.EventHandlerPlugin,
             currentData["progress"]["printTimeLeftString"] = self._get_time_from_seconds(currentData["progress"]["printTimeLeft"])
             currentData["progress"]["ETA"] = time.strftime(self._eta_strftime, time.localtime(time.time() + currentData["progress"]["printTimeLeft"]))
         except Exception as e:
-            self._logger.debug("Caught an exception trying to parse data: {0}\n Error is: {1}\nTraceback:{2}".format(currentData,e,traceback.format_exc()))
+            # formerly "Caught an exception"
+            self._logger.debug("Getting printTimeLeft failed. Data: {0}\nError: {1}\nTraceback:{2}".format(currentData,e,traceback.format_exc()))
 
         return currentData
 
