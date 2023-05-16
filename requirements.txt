@@ -10,5 +10,5 @@
 # https://github.com/poikilos/pypicolcd/archive/master.zip
 # NOTE: Using `dependency_links = [ "git+" + url ]` in setup.py shows a deprecation warning
 # (See https://github.com/pypa/pip/issues/4187) and may not work in the future!
+# setup.py git requirement format differs! See requirements in setup.py.
 -e git+https://github.com/poikilos/pypicolcd.git
-.

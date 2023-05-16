@@ -33,7 +33,8 @@ plugin_url = "https://github.com/poikilos/OctoPrint-picoLCD-Progress"
 plugin_license = "AGPLv3"
 
 # Any additional requirements besides OctoPrint should be listed here
-plugin_requires = ["pypicolcd"]
+plugin_requires = []
+# For git, use dependency_links below (<https://python-packaging.readthedocs.io/en/latest/dependencies.html>)!
 
 ### --------------------------------------------------------------------------------------------------------------------
 ### More advanced options that you usually shouldn't have to touch follow after this point
@@ -57,7 +58,8 @@ plugin_ignored_packages = []
 # Example:
 #     plugin_requires = ["someDependency==dev"]
 #     additional_setup_parameters = {"dependency_links": ["https://github.com/someUser/someRepo/archive/master.zip#egg=someDependency-dev"]}
-additional_setup_parameters = {}
+plugin_requires = ["pypicolcd"]
+additional_setup_parameters = {"dependency_links": ["https://github.com/Poikilos/pypicolcd/archive/master.zip#egg=pypicolcd"]}
 
 ########################################################################################################################
 
